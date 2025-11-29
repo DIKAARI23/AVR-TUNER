@@ -14,7 +14,7 @@
 </head>
 <body>
     <div id="root"></div>
-    
+
     <script type="text/babel">
         const { useState } = React;
 
@@ -54,9 +54,7 @@
                 
                 if (data.startsWith('RPM:')) {
                     const rpmValue = parseInt(data.substring(4));
-                    if (!isNaN(rpmValue)) {
-                        setRpm(rpmValue);
-                    }
+                    if (!isNaN(rpmValue)) setRpm(rpmValue);
                 }
             };
 
@@ -71,47 +69,37 @@
                     
                     const dev = await navigator.bluetooth.requestDevice({
                         acceptAllDevices: true,
-                        optionalServices: [
-                            '0000ffe0-0000-1000-8000-00805f9b34fb',
-                            '00001101-0000-1000-8000-00805f9b34fb'
-                        ]
+                        optionalServices: ['0000ffe0-0000-1000-8000-00805f9b34fb']
                     });
 
                     setStatusMsg('Menghubungkan...');
                     const server = await dev.gatt.connect();
-                    
+
                     let service;
                     try {
                         service = await server.getPrimaryService('0000ffe0-0000-1000-8000-00805f9b34fb');
                     } catch (e) {
                         const services = await server.getPrimaryServices();
-                        if (services.length > 0) {
-                            service = services[0];
-                        } else {
-                            throw new Error('Service tidak ditemukan');
-                        }
+                        if (services.length > 0) service = services[0];
+                        else throw new Error('Service tidak ditemukan');
                     }
-                    
+
                     let char;
                     try {
                         char = await service.getCharacteristic('0000ffe1-0000-1000-8000-00805f9b34fb');
                     } catch (e) {
                         const characteristics = await service.getCharacteristics();
-                        if (characteristics.length > 0) {
-                            char = characteristics[0];
-                        } else {
-                            throw new Error('Characteristic tidak ditemukan');
-                        }
+                        if (characteristics.length > 0) char = characteristics[0];
+                        else throw new Error('Characteristic tidak ditemukan');
                     }
-                    
+
                     await char.startNotifications();
                     char.addEventListener('characteristicvaluechanged', handleNotifications);
-                    
+
                     setDevice(dev);
                     setCharacteristic(char);
                     setIsConnected(true);
                     setStatusMsg('Terhubung ke ' + (dev.name || 'Perangkat'));
-                    
                 } catch (error) {
                     console.error('Bluetooth error:', error);
                     setStatusMsg('Gagal terhubung: ' + error.message);
@@ -120,13 +108,11 @@
             };
 
             const disconnectBluetooth = () => {
-                if (device && device.gatt.connected) {
-                    device.gatt.disconnect();
-                    setIsConnected(false);
-                    setStatusMsg('Terputus');
-                    setDevice(null);
-                    setCharacteristic(null);
-                }
+                if (device && device.gatt.connected) device.gatt.disconnect();
+                setIsConnected(false);
+                setStatusMsg('Terputus');
+                setDevice(null);
+                setCharacteristic(null);
             };
 
             const sendCommand = async (command) => {
@@ -137,23 +123,17 @@
 
                 try {
                     const encoder = new TextEncoder();
+                    console.log('Mengirim command:', command); // Debug
                     await characteristic.writeValue(encoder.encode(command));
-                    setStatusMsg('Terkirim: ' + command);
+                    setStatusMsg('Terkirim: ' + command.trim());
                 } catch (error) {
                     console.error('Send error:', error);
                     setStatusMsg('Gagal mengirim: ' + error.message);
                 }
             };
 
-            const sendPulser = () => {
-                const command = `pulser ${pulserValue}`;
-                sendCommand(command);
-            };
-
-            const sendLimit = () => {
-                const command = `limit${limitValue}`;
-                sendCommand(command);
-            };
+            const sendPulser = () => sendCommand(`pulser ${pulserValue}\n`);
+            const sendLimit = () => sendCommand(`limit ${limitValue}\n`);
 
             return (
                 <div className="min-h-screen bg-gradient-to-br from-slate-900 via-blue-900 to-slate-900 flex flex-col">
@@ -214,7 +194,7 @@
                                                 className="w-full px-4 py-3 bg-slate-700 border border-slate-600 rounded-lg text-white focus:outline-none focus:border-blue-500 transition"
                                                 placeholder="Masukkan nilai 45-150"
                                             />
-                                            <p className="text-xs text-slate-400 mt-1">Perintah:pulser {pulserValue}</p>
+                                            <p className="text-xs text-slate-400 mt-1">Perintah: pulser {pulserValue}</p>
                                         </div>
                                         <button
                                             onClick={sendPulser}
@@ -244,7 +224,7 @@
                                                 className="w-full px-4 py-3 bg-slate-700 border border-slate-600 rounded-lg text-white focus:outline-none focus:border-cyan-500 transition"
                                                 placeholder="Masukkan nilai 12-40"
                                             />
-                                            <p className="text-xs text-slate-400 mt-1">Perintah:limit {limitValue}</p>
+                                            <p className="text-xs text-slate-400 mt-1">Perintah: limit {limitValue}</p>
                                         </div>
                                         <button
                                             onClick={sendLimit}
@@ -272,5 +252,4 @@
         ReactDOM.render(<AVRTuner />, document.getElementById('root'));
     </script>
 </body>
-</html>S
-
+</html>

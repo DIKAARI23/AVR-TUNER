@@ -7,22 +7,17 @@
     <meta name="theme-color" content="#0f172a">
     <title>AVR Tuner</title>
     <link rel="manifest" href="manifest.json">
-    <link rel="icon" type="image/png" href="icon.png">
     <script crossorigin src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
     <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
     <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
     <script src="https://cdn.tailwindcss.com"></script>
-    <style>
-        body { margin: 0; padding: 0; overflow-x: hidden; }
-    </style>
 </head>
 <body>
     <div id="root"></div>
     
     <script type="text/babel">
-        const { useState, useEffect } = React;
+        const { useState } = React;
 
-        // Lucide React Icons (inline)
         const Bluetooth = () => (
             <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
                 <path d="m7 7 10 10-5 5V2l5 5L7 17"/>
@@ -67,29 +62,60 @@
 
             const connectBluetooth = async () => {
                 try {
+                    if (!navigator.bluetooth) {
+                        setStatusMsg('Browser tidak mendukung Bluetooth. Gunakan Chrome atau Edge.');
+                        return;
+                    }
+
                     setStatusMsg('Mencari perangkat...');
                     
-                    const device = await navigator.bluetooth.requestDevice({
-                        filters: [{ services: ['0000ffe0-0000-1000-8000-00805f9b34fb'] }],
-                        optionalServices: ['0000ffe0-0000-1000-8000-00805f9b34fb']
+                    const dev = await navigator.bluetooth.requestDevice({
+                        acceptAllDevices: true,
+                        optionalServices: [
+                            '0000ffe0-0000-1000-8000-00805f9b34fb',
+                            '00001101-0000-1000-8000-00805f9b34fb'
+                        ]
                     });
 
                     setStatusMsg('Menghubungkan...');
-                    const server = await device.gatt.connect();
+                    const server = await dev.gatt.connect();
                     
-                    const service = await server.getPrimaryService('0000ffe0-0000-1000-8000-00805f9b34fb');
-                    const char = await service.getCharacteristic('0000ffe1-0000-1000-8000-00805f9b34fb');
+                    let service;
+                    try {
+                        service = await server.getPrimaryService('0000ffe0-0000-1000-8000-00805f9b34fb');
+                    } catch (e) {
+                        const services = await server.getPrimaryServices();
+                        if (services.length > 0) {
+                            service = services[0];
+                        } else {
+                            throw new Error('Service tidak ditemukan');
+                        }
+                    }
+                    
+                    let char;
+                    try {
+                        char = await service.getCharacteristic('0000ffe1-0000-1000-8000-00805f9b34fb');
+                    } catch (e) {
+                        const characteristics = await service.getCharacteristics();
+                        if (characteristics.length > 0) {
+                            char = characteristics[0];
+                        } else {
+                            throw new Error('Characteristic tidak ditemukan');
+                        }
+                    }
                     
                     await char.startNotifications();
                     char.addEventListener('characteristicvaluechanged', handleNotifications);
                     
-                    setDevice(device);
+                    setDevice(dev);
                     setCharacteristic(char);
                     setIsConnected(true);
-                    setStatusMsg('Terhubung');
+                    setStatusMsg('Terhubung ke ' + (dev.name || 'Perangkat'));
+                    
                 } catch (error) {
                     console.error('Bluetooth error:', error);
                     setStatusMsg('Gagal terhubung: ' + error.message);
+                    setIsConnected(false);
                 }
             };
 
@@ -112,7 +138,7 @@
                 try {
                     const encoder = new TextEncoder();
                     await characteristic.writeValue(encoder.encode(command));
-                    setStatusMsg(`Terkirim: ${command}`);
+                    setStatusMsg('Terkirim: ' + command);
                 } catch (error) {
                     console.error('Send error:', error);
                     setStatusMsg('Gagal mengirim: ' + error.message);
@@ -234,7 +260,7 @@
 
                             <div className="bg-slate-800/30 backdrop-blur-sm rounded-lg p-4 border border-slate-700">
                                 <p className="text-sm text-slate-400 text-center">
-                                    📱 Pastikan perangkat Bluetooth HC-05/HC-06 sudah terpasang dan aktif
+                                    📱 Pastikan Bluetooth aktif dan perangkat HC-05/HC-06 sudah terpasang
                                 </p>
                             </div>
                         </div>
@@ -245,13 +271,5 @@
 
         ReactDOM.render(<AVRTuner />, document.getElementById('root'));
     </script>
-
-    <script>
-        if ('serviceWorker' in navigator) {
-            window.addEventListener('load', () => {
-                navigator.serviceWorker.register('/sw.js');
-            });
-        }
-    </script>
 </body>
-</html>
+</html>S
